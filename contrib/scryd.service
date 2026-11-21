@@ -1,0 +1,14 @@
+[Unit]
+Description=scry quiet resident code search indexer daemon
+After=default.target
+
+[Service]
+Type=simple
+ExecStart=%h/.local/bin/scry daemon start --foreground
+ExecStop=%h/.local/bin/scry daemon stop
+Restart=on-failure
+RestartSec=2
+MemoryHigh=64M
+
+[Install]
+WantedBy=default.target

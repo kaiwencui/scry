@@ -1,0 +1,10 @@
+build/
+scry
+scry-test
+scry-bench
+*.o
+*.d
+.scry/
+*.scry
+.cache/
+compile_commands.json
