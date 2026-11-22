@@ -12,15 +12,24 @@ Across **7 code search engines** benchmarked under identical conditions on a pin
 | **On-disk index size** | **453 MiB (`0.28×`)** | 170 MiB (`cindex`) / 3,287 MiB (`Zoekt`) / 7,589 MiB (`Livegrep`) | **7.3× smaller than Zoekt, 16.8× smaller than Livegrep** |
 | **Daemon Private Dirty RAM (rest → warm)** | **3.21 → 20.63 MiB** | 102.3 → 73.8 MiB (`Zoekt`) / 60.3 → 238.9 MiB (`Livegrep`) | **3.6×–32× lower private dirty RAM** |
 | **Daemon Total RSS (rest → warm)** | **9.1 → 48.8 MiB** | 202.0 → 320.8 MiB (`Zoekt`) / 557.2 → 2,126.2 MiB (`Livegrep`) | **6.6×–43.6× lower warm RSS** |
-| **One-shot CLI: rare literal (`update_curr_dl_se`)** | **1.23 ms** | 11.61 ms (`csearch`) / 149.8 ms (`rg`) / 533 ms (`git grep`) | **9.4× vs `csearch`, 122× vs `rg`** |
-| **One-shot CLI: case-insensitive (`-i SCHED_FLAG_UTIL_CLAMP`)** | **1.64 ms** | 49.55 ms (`zoekt`) / 137.8 ms (`rg`) | **30× vs `zoekt` CLI, 84× vs `rg`** |
-| **Daemon IPC: rare literal (`update_curr_dl_se`)** | **0.21 ms** | 0.58 ms (`Zoekt`) / 0.67 ms (`Livegrep`) | **2.8×–3.2× faster** |
-| **Daemon IPC: medium literal (`sched_entity`, 641 hits)** | **0.45 ms** | 3.13 ms (`Zoekt`) / 7.26 ms (`Livegrep`) | **7.0×–16.1× faster** |
-| **Daemon IPC: `-i SCHED_FLAG_UTIL_CLAMP` (22 hits)** | **0.08 ms** | 0.61 ms (`Zoekt`) / 0.76 ms (`Livegrep`) | **7.6×–9.5× faster** |
-| **Daemon IPC: complex regex (`struct\s+sched_[a-z_]+_entity`)** | **0.78 ms** | 4.83 ms (`Livegrep`) / 12.15 ms (`Zoekt`) | **6.2×–15.6× faster** |
-| **Daemon IPC: header glob (`rq_clock_pelt` in `*.h`)** | **0.06 ms** | 0.58 ms (`Zoekt`) / 1.04 ms (`Livegrep`) | **9.7×–17.3× faster** |
-| **Live incremental update (single-file edit / 2k checkout storm)** | **0.12 ms / 27.1 ms** | Full shard/index rebuild (`8–110 s`) | **Real-time LSM delta** |
+| **One-shot CLI (`p50`, 6 queries)** | **1.13–5.35 ms** | 3.56–121.3 ms (`csearch`) / 63.5–149.8 ms (`rg`) | **9×–122× faster** (6/6 wins) |
+| **Daemon IPC (`p50`, 6 queries)** | **0.06–0.78 ms** | 0.58–12.15 ms (`Zoekt`) / 0.67–7.26 ms (`Livegrep`) | **2.8×–17.3× faster** (6/6 wins, all `<1 ms`) |
+| **Live incremental update (file edit / 2k checkout)** | **0.12 ms / 27.1 ms** | Full shard/index rebuild (`8–110 s`) | **Real-time LSM delta** |
 | **Binary size (stripped C++23 LTO)** | **603 KB** (`695 KB` unstripped) | 1.2 MB (`ug`) / 3.3 MB (`csearch`) / 17–44 MB (`Livegrep`/`Zoekt`) | **Zero runtime dependencies** |
+
+## Quick Start
+
+Requires a C++23 compiler (`g++ >= 13` or `clang++ >= 17`) and `make` (or `cmake`):
+
+```sh
+make -j$(nproc) && make install   # Builds ./scry (-O3 -march=native -flto) -> ~/.local/bin
+scry index /path/to/repo          # Build zero-copy mmap index once
+scry sched_entity /path/to/repo   # Sub-2ms indexed CLI search (rg-compatible flags)
+scry -I --open                    # Interactive split-pane picker (jumps to $EDITOR / zed)
+scry watch /path/to/repo          # Start quiet resident inotify/FSEvents daemon
+```
+
+Optional: `make PORTABLE=1` builds without `-march=native`; `make strip` strips `./scry` to ~603 KB.
 
 ---
 
@@ -223,20 +232,14 @@ A naive exact trigram index must union up to $2^3 = 8$ posting lists per trigram
 
 ---
 
-## Build & Install
+## Verification & Development
 
-Requires a C++23 compiler (`g++ >= 13` or `clang++ >= 17`) and `make` (or `cmake`):
-
-```bash
-make -j$(nproc)          # Builds ./scry and ./scry-bench (-O3 -march=native -flto)
-make install             # Installs scry to ~/.local/bin (override with PREFIX=/usr/local)
+```sh
 make test                # Builds and runs ./scry-test (10 unit & integration suites)
 make DEBUG=1 test        # Runs full test suite under AddressSanitizer + UBSan
 make diff-test           # Runs 23 byte-for-byte differential tests against ripgrep (rg)
 make bench               # Runs scry-bench + CLI comparison vs rg
 ```
-
-Optional: `make PORTABLE=1` builds without `-march=native`; `make strip` strips `./scry` to ~603 KB.
 
 ---
 
